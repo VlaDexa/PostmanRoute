@@ -8,8 +8,8 @@ namespace PostmanRouteForms
 	public partial class Form1 : Form
 	{
 		int click = 0;
-		CellStatus[,] cells = new CellStatus[9, 9];
-		Panel[,] panels = new Panel[9, 9];
+		readonly CellStatus[,] cells = new CellStatus[9, 9];
+		readonly Panel[,] panels = new Panel[9, 9];
 
 		public Form1()
 		{
@@ -51,12 +51,13 @@ namespace PostmanRouteForms
 				{
 					panels[i, j].BackColor = cells[i, j] switch
 					{
-						CellStatus.None => Color.Gray,
+						CellStatus.None => Color.White,
 						CellStatus.PostOffice => Color.Blue,
 						CellStatus.PostBox => Color.Red,
 						CellStatus.PostMan => Color.Green,
 						_ => Color.Yellow
 					};
+					panels[i, j].Refresh();
 				}
 			}
 		}
@@ -74,6 +75,22 @@ namespace PostmanRouteForms
 
 			cells[x, y] = click++ == 0 ? CellStatus.PostOffice : CellStatus.PostBox;
 			UpdatePanelColors();
+		}
+
+		private void Reset()
+		{
+			Start.Enabled = true;
+			Capacity.Enabled = true;
+			Capacity.Text = "";
+			LeftToDeliverLabel.Visible = false;
+			LeftInBagLabel.Visible = false;
+			LeftToDeliver.Visible = false;
+			LeftToDeliver.Text = "";
+			LeftInBag.Visible = false;
+			LeftInBag.Text = "";
+			for (var i = 0; i < 9; i++) for (var j = 0; j < 9; j++) cells[i, j] = CellStatus.None;
+			UpdatePanelColors();
+			click = 0;
 		}
 
 		private void Start_Click(object sender, EventArgs e)
@@ -104,23 +121,45 @@ namespace PostmanRouteForms
 
 			var isCapacityOk = uint.TryParse(Capacity.Text, out uint res) && res > 0;
 
+			if (!isCapacityOk) MessageBox.Show("Неправильная вместимость сумки");
+			else if (!hasPostOffice) MessageBox.Show("Поставьте начальную точку");
+			else if (!hasPostBox) MessageBox.Show("Поставьте хотя бы одну точку для доставки");
+
 			if (isCapacityOk && hasPostBox && hasPostOffice) {
 				UpdatePanelColors();
 				button.Enabled = false;
-				var solver = new PostmanSolver(res, cells);
-				var path = solver.Path;
+				button.Refresh();
+				Capacity.Enabled = false;
+				Capacity.Refresh();
+				LeftToDeliverLabel.Visible = true;
+				LeftInBagLabel.Visible = true;
+				LeftInBagLabel.Refresh();
+				LeftToDeliverLabel.Refresh();
+				LeftInBag.Visible = true;
+				LeftToDeliver.Visible = true;
+				var solver = new MyGraph(cells);
+				var path = solver.GetPaths(res);
 
-				foreach (var(x, y) in path)
+				foreach (var (x, y, leftToDeliver, inBagLetters) in path)
 				{
 					var prevState = cells[y, x];
 					cells[y, x] = CellStatus.PostMan;
 					UpdatePanelColors();
-					Thread.Sleep(200);
+					LeftInBag.Text = inBagLetters.ToString();
+					LeftInBag.Refresh();
+					LeftToDeliver.Text = leftToDeliver.ToString();
+					LeftToDeliver.Refresh();
+					Thread.Sleep(500);
 					cells[y, x] = prevState;
 				}
 				UpdatePanelColors();
 				MessageBox.Show("Done");
 			}
+		}
+
+		private void Reset_Click(object sender, EventArgs e)
+		{
+			Reset();
 		}
 	}
 }
